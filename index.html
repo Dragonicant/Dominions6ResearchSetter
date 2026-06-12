@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Arena Research Setter</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
 
@@ -388,7 +387,7 @@
 </main>
 
 <footer>
-  Extract the downloaded zip into <code>%APPDATA%\dominions6\mods\</code> and enable the mod in-game.
+  Create a folder named after the downloaded file (without the <code>.dm</code> extension) in <code>%APPDATA%\dominions6\mods\</code>, place the file inside, then enable the mod in-game.
 </footer>
 
 <script>
@@ -601,22 +600,18 @@ async function generate() {
 
     const result = buildModContent(natA, natB, natAId, natBId, resA, resB);
 
-    // Build zip: modName/modName.dm
-    const zip = new JSZip();
-    const folder = zip.folder(modName);
-    folder.file(dmFile, result.content);
+    const blob = new Blob([result.content], { type: 'text/plain' });
 
-    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = modName + '.zip';
-    a.click();
-    URL.revokeObjectURL(url);
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = dmFile;
+	a.click();
+
+	URL.revokeObjectURL(url);
 
     document.getElementById('summary-rows').innerHTML = [
-      ['Zip file', modName + '.zip'],
-      ['Mod folder', modName + '/'],
+      ['Mod file', dmFile],
       [result.nameA + ' — generic spells granted', result.availA.size],
       [result.nameA + ' — national spells granted', result.natGrantedA.length],
       [result.nameA + ' — national spells cleared', result.natClearedA.length],
@@ -627,7 +622,7 @@ async function generate() {
 
     summary.className = 'summary visible';
     status.className = 'status success';
-    status.textContent = 'Downloaded. Extract the zip into your mods folder.';
+    status.textContent = 'Downloaded mod file.';
 
   } catch(e) {
     status.className = 'status error';
