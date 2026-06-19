@@ -520,48 +520,60 @@ function buildModContent(natA, natB, natAId, natBId, resA, resB) {
     }
   }
 
-  lines.push('-- Phase 3: national spells for ' + nameA);
-  lines.push('');
-  for (const spell of natGrantedA) {
-    lines.push('-- ' + spell.name + ' (' + (spell.school >= 0 ? SCHOOLS[spell.school] : 'Special') + ' ' + spell.researchLevel + ')');
-    lines.push('#newspell');
-    lines.push('#copyspell ' + spell.id);
-    lines.push('#restricted ' + natAId);
-    lines.push('#school ' + spell.school);
-    lines.push('#researchlevel 0');
-    lines.push('#end');
-    lines.push('');
-    lines.push('#selectspell ' + spell.id);
-    lines.push('#clear');
-    lines.push('#end');
-    lines.push('');
-  }
-  for (const spell of natClearedA) {
-    lines.push('-- ' + spell.name);
-    lines.push('#selectspell ' + spell.id);
-    lines.push('#clear');
-    lines.push('#end');
-    lines.push('');
-  }
+  // Collect all national spells that need to be touched (owned by A, B, or shared)
+  // We process each unique national spell once, emitting copies for ALL owners
+  const allNationalSpells = SPELLS.filter(s => s.national && (
+    s.nations.includes(natAId) || s.nations.includes(natBId)
+  ));
 
-  lines.push('-- Phase 4: national spells for ' + nameB);
+  lines.push('-- Phase 3: national spells');
   lines.push('');
-  for (const spell of natGrantedB) {
-    lines.push('-- ' + spell.name + ' (' + (spell.school >= 0 ? SCHOOLS[spell.school] : 'Special') + ' ' + spell.researchLevel + ')');
-    lines.push('#newspell');
-    lines.push('#copyspell ' + spell.id);
-    lines.push('#restricted ' + natBId);
-    lines.push('#school ' + spell.school);
-    lines.push('#researchlevel 0');
-    lines.push('#end');
-    lines.push('');
-    lines.push('#selectspell ' + spell.id);
-    lines.push('#clear');
-    lines.push('#end');
-    lines.push('');
-  }
-  for (const spell of natClearedB) {
-    lines.push('-- ' + spell.name);
+
+  for (const spell of allNationalSpells) {
+    const schoolStr = spell.school >= 0 ? SCHOOLS[spell.school] : 'Special';
+    const isGrantedA = spell.nations.includes(natAId) &&
+      (spell.school === -1 || spell.researchLevel <= clamp(resA[spell.school]));
+    const isGrantedB = spell.nations.includes(natBId) &&
+      (spell.school === -1 || spell.researchLevel <= clamp(resB[spell.school]));
+
+    lines.push('-- ' + spell.name + ' (' + schoolStr + ' ' + spell.researchLevel + ')');
+
+    // Emit preservation copies for all owners that aren't natA or natB
+    for (const ownerId of spell.nations) {
+      if (ownerId === natAId || ownerId === natBId) continue;
+      lines.push('-- preserved for nation ' + ownerId);
+      lines.push('#newspell');
+      lines.push('#copyspell ' + spell.id);
+      lines.push('#restricted ' + ownerId);
+      lines.push('#school ' + spell.school);
+      lines.push('#researchlevel ' + spell.researchLevel);
+      lines.push('#end');
+      lines.push('');
+    }
+
+    // Emit copy for nation A if granted
+    if (isGrantedA) {
+      lines.push('#newspell');
+      lines.push('#copyspell ' + spell.id);
+      lines.push('#restricted ' + natAId);
+      lines.push('#school ' + spell.school);
+      lines.push('#researchlevel 0');
+      lines.push('#end');
+      lines.push('');
+    }
+
+    // Emit copy for nation B if granted
+    if (isGrantedB) {
+      lines.push('#newspell');
+      lines.push('#copyspell ' + spell.id);
+      lines.push('#restricted ' + natBId);
+      lines.push('#school ' + spell.school);
+      lines.push('#researchlevel 0');
+      lines.push('#end');
+      lines.push('');
+    }
+
+    // Clear the original — all owners now have copies
     lines.push('#selectspell ' + spell.id);
     lines.push('#clear');
     lines.push('#end');
@@ -584,7 +596,8 @@ function buildModContent(natA, natB, natAId, natBId, resA, resB) {
     nameA, nameB,
     availA, availB,
     natGrantedA, natGrantedB,
-    natClearedA, natClearedB
+    natClearedA, natClearedB,
+    allNationalSpells
   };
 }
 
@@ -627,11 +640,11 @@ async function generate() {
       ['Items set to constlevel 0', ITEM_IDS.length],
       [result.nameA + ' — generic spells granted', result.availA.size],
       [result.nameA + ' — national spells granted', result.natGrantedA.length],
-      [result.nameA + ' — national spells cleared', result.natClearedA.length],
-      [result.nameB + ' — generic spells granted', result.availB.size],
+      [result.nameA + ' — national spells granted', result.natGrantedA.length],
+      [result.nameA + ' — national spells out of threshold', result.natClearedA.length],
       [result.nameB + ' — national spells granted', result.natGrantedB.length],
-      [result.nameB + ' — national spells cleared', result.natClearedB.length],
-    ].map(([k,v]) => '<div class="summary-row"><span>'+k+'</span><span>'+v+'</span></div>').join('');
+      [result.nameB + ' — national spells granted', result.natGrantedB.length],
+      [result.nameB + ' — national spells out of threshold', result.natClearedB.length],
 
     summary.className = 'summary visible';
     status.className = 'status success';
